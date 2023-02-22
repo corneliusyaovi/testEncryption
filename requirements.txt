@@ -14,7 +14,7 @@ itsdangerous==2.1.2
 Jinja2==3.1.2
 MarkupSafe==2.1.2
 orjson==3.8.6
-pycrypto==2.6.1
+pycryptodome==3.17
 pydantic==1.10.5
 python-dotenv==0.21.1
 python-multipart==0.0.5
