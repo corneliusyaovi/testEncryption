@@ -91,6 +91,10 @@ IntegerValueKeyArray = [
     "cardzip"
 ]
 
+@app.get("/")
+async def root():
+    return {"message": "Endpoint is up"}
+
 @app.post("/encrypt")
 async def encrypt(request:Request, Token: str = Header(...)):
 
@@ -108,3 +112,5 @@ async def encrypt(request:Request, Token: str = Header(...)):
     
     encrypted_response = EncryptedResponse(**req)
     return encrypted_response
+
+
