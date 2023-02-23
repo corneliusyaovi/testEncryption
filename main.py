@@ -1,5 +1,5 @@
 from Crypto.Cipher import DES3
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, HTTPException, status
 from pydantic import BaseModel
 from typing import Union
 import base64
@@ -114,14 +114,22 @@ async def root():
 async def formatRequest(request:Request, Token: str = Header(...)):
     
     if not Token:
-        return {
-                "message": "Encryption key not provided. Please check your header."
-            }
+        raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail = f'Please enter your Encryption key.'
+            )
     
     req = request.dict()
 
     for key in IntegerValueKeyArray:
         data = req[key]
+        
+        if req[key] is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail = f'{key} cannot be null. please pass a valid value.'
+            )
+
         req[key] = encrypt_data(Token, data)
 
     encrypted_response = EncryptedResponse(**req)
