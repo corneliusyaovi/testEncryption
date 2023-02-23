@@ -1,9 +1,9 @@
 from Crypto.Cipher import DES3
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
-from typing import Dict, Union
+from typing import List, Union
 import json
-import uvicorn
+import base64
 
 class Request(BaseModel):
     accountid: str
@@ -37,7 +37,7 @@ class Request(BaseModel):
     transactionreference: str
     trxreference: str
     vpcmerchant: str
-    vpcrouting: Dict[str, int] = None
+    vpcrouting: str
 
 class EncryptedResponse(BaseModel):
     accountid: str
@@ -71,7 +71,7 @@ class EncryptedResponse(BaseModel):
     transactionreference: str
     trxreference: str
     vpcmerchant: str
-    vpcrouting: Dict[str, int] = None
+    vpcrouting: str
 
 app = FastAPI()
 
@@ -91,13 +91,36 @@ IntegerValueKeyArray = [
     "cardzip"
 ]
 
+def encrypt_vpcrouting(key, value):
+    
+    key_bytes = key.encode('utf-8')
+    value_byte = value.encode('utf-8')
+
+    if len(value_byte) % 8 != 0:
+        value_byte += b"\0" * (8 - len(value_byte) % 8)
+
+    cipher = DES3.new(key_bytes, DES3.MODE_ECB)
+    encrypted_bytes = cipher.encrypt(value_byte)
+
+    encrypted_base64 = base64.b64encode(encrypted_bytes)
+
+    encrypted = encrypted_base64.decode('utf-8')
+    
+    return encrypted
+
 @app.get("/")
 async def root():
     return {"message": "Endpoint is up"}
 
+
 @app.post("/encrypt")
 async def encrypt(request:Request, Token: str = Header(...)):
-
+    
+    if not Token:
+        return {
+                "message": "Encryption key not provided. Please check your header."
+            }
+    
     req = request.dict()
     cipher = DES3.new(Token.encode(), DES3.MODE_ECB)
 
@@ -109,6 +132,9 @@ async def encrypt(request:Request, Token: str = Header(...)):
         encrypted_value_str = encrypted_value_bytes.hex()
         req[key] = encrypted_value_str
 
+    for key in req:
+        if req.get("vpcrouting") is not None:
+            req["vpcrouting"] = encrypt_vpcrouting(Token, req["vpcrouting"])
     
     encrypted_response = EncryptedResponse(**req)
     return encrypted_response
