@@ -1,8 +1,7 @@
 from Crypto.Cipher import DES3
 from fastapi import FastAPI, Header
 from pydantic import BaseModel
-from typing import List, Union
-import json
+from typing import Union
 import base64
 
 class Request(BaseModel):
@@ -88,23 +87,21 @@ IntegerValueKeyArray = [
     "pin",
     "pwcMerchantId",
     "bvn",
-    "cardzip"
+    "cardzip",
+    "vpcrouting"
 ]
 
-def encrypt_vpcrouting(key, value):
+def encrypt_data(key, value):
     
-    key_bytes = key.encode('utf-8')
-    value_byte = value.encode('utf-8')
-
-    if len(value_byte) % 8 != 0:
-        value_byte += b"\0" * (8 - len(value_byte) % 8)
-
-    cipher = DES3.new(key_bytes, DES3.MODE_ECB)
-    encrypted_bytes = cipher.encrypt(value_byte)
-
-    encrypted_base64 = base64.b64encode(encrypted_bytes)
-
-    encrypted = encrypted_base64.decode('utf-8')
+    blockSize = 8
+    padDiff = blockSize - (len(value) % blockSize)
+    
+    cipher = DES3.new(key, DES3.MODE_ECB)
+    
+    value = "{}{}".format(value, "".join(chr(padDiff) * padDiff))
+    test = value.encode('utf-8')
+    
+    encrypted = base64.b64encode(cipher.encrypt(test)).decode("utf-8")
     
     return encrypted
 
@@ -114,7 +111,7 @@ async def root():
 
 
 @app.post("/encrypt")
-async def encrypt(request:Request, Token: str = Header(...)):
+async def formatRequest(request:Request, Token: str = Header(...)):
     
     if not Token:
         return {
@@ -122,20 +119,11 @@ async def encrypt(request:Request, Token: str = Header(...)):
             }
     
     req = request.dict()
-    cipher = DES3.new(Token.encode(), DES3.MODE_ECB)
 
     for key in IntegerValueKeyArray:
-        value = int(req[key])
-        value_bytes = value.to_bytes(8, byteorder='big')
-        padded_value_bytes = value_bytes.ljust(len(value_bytes) + (8 - len(value_bytes) % 8), b"\0")
-        encrypted_value_bytes = cipher.encrypt(padded_value_bytes)
-        encrypted_value_str = encrypted_value_bytes.hex()
-        req[key] = encrypted_value_str
+        data = req[key]
+        req[key] = encrypt_data(Token, data)
 
-    for key in req:
-        if req.get("vpcrouting") is not None:
-            req["vpcrouting"] = encrypt_vpcrouting(Token, req["vpcrouting"])
-    
     encrypted_response = EncryptedResponse(**req)
     return encrypted_response
 
